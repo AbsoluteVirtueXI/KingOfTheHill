@@ -4,6 +4,9 @@
   "main": "index.js",
   "author": "AbsoluteVirtueXI <absolutevirtuexi@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "test": "npx truffle compile && mocha --exit --recursive"
+   },
   "devDependencies": {
     "@openzeppelin/test-environment": "^0.1.9",
     "@openzeppelin/test-helpers": "^0.5.10",
