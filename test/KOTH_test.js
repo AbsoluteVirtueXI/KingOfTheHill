@@ -1,7 +1,7 @@
 /* eslint-disable comma-dangle */
 /* eslint-disable no-unused-expressions */
 const { contract, accounts, web3 } = require('@openzeppelin/test-environment');
-const { BN, expectRevert, ExpectEvent, ether, constants, singletons } = require('@openzeppelin/test-helpers');
+const { BN, expectRevert, constants, singletons } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const KOTH = contract.fromArtifact('KOTH');
