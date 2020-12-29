@@ -51,7 +51,7 @@ describe('KOTH token', function () {
     it('registers KOTH to KingOfTheHill game contract at deployment', async function () {
       expect(await this.kingOfTheHill.getKOTH()).to.equal(this.koth.address);
     });
-    it('reverts if at deployment an address already registered in KingOfTheHill game contract', async function () {
+    it('reverts if at deployment an address is already registered in KingOfTheHill game contract', async function () {
       await expectRevert(
         KOTH.new(owner, presale, [this.kingOfTheHill.address]),
         'KingOfTheHill: KOTH address is already set'
