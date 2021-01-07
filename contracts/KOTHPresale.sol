@@ -5,9 +5,10 @@ pragma solidity >=0.6.0 <0.8.0;
 import "@openzeppelin/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./KOTH.sol";
 
-contract KOTHPresale is Context, Ownable {
+contract KOTHPresale is Context, Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
     struct Referrer {
@@ -51,7 +52,7 @@ contract KOTHPresale is Context, Ownable {
         _;
     }
 
-    // calculate the percentage of amount in wei
+    // calculate percentage of amount in wei
     function percentageToAmount(uint256 amount, uint256 percentage) public pure returns (uint256) {
         return amount.mul(percentage).div(100);
     }
@@ -82,6 +83,10 @@ contract KOTHPresale is Context, Ownable {
         return address(_koth);
     }
 
+    function getKOTHBonusPercentage() public view returns (uint256) {
+        return _kothBonusPercentage;
+    }
+
     function setKOTHBonusPercentage(uint256 percentage) public onlyOwner() {
         require(percentage <= 100, "KOTHPresale: KOTH bonus percentage greater than 100");
         _kothBonusPercentage = percentage;
@@ -100,15 +105,15 @@ contract KOTHPresale is Context, Ownable {
         _childReferrerPercentage = percentage;
     }
 
-    function originalReferrerPercentage() public view returns (uint256) {
+    function getOriginalReferrerPercentage() public view returns (uint256) {
         return _originalReferrerPercentage;
     }
 
-    function parentReferrerPercentage() public view returns (uint256) {
+    function getParentReferrerPercentage() public view returns (uint256) {
         return _originalReferrerPercentage.sub(_childReferrerPercentage);
     }
 
-    function childReferrerPercentage() public view returns (uint256) {
+    function getChildReferrerPercentage() public view returns (uint256) {
         return _childReferrerPercentage;
     }
 
@@ -117,7 +122,11 @@ contract KOTHPresale is Context, Ownable {
     }
 
     function isOriginalReferrer(address account) public view returns (bool) {
-        return _referrer[account].parent == address(0);
+        return _referrer[account].parent == address(0) && isReferrer(account);
+    }
+
+    function isChildReferrer(address account) public view returns (bool) {
+        return isReferrer(account) && !isOriginalReferrer(account);
     }
 
     function parentReferrerOf(address account) public view returns (address) {
@@ -155,37 +164,53 @@ contract KOTHPresale is Context, Ownable {
     }
 
     // buy without referrer
-    function buyKOTH() public payable onlyKOTHRegistered() {
+    function buyKOTH() public payable nonReentrant() onlyKOTHRegistered() {
         require(msg.value > 0, "KOTHPresale: purchase price can not be 0");
         uint256 nbKOTH = getKOTHAmount(msg.value);
-        _weiRaised = _weiRaised.add(msg.value);
-        _koth.mint(_msgSender(), nbKOTH);
+        _processPurchase(nbKOTH);
         emit KOTHPurchased(_msgSender(), address(0), address(0), msg.value, nbKOTH);
-        _wallet.transfer(msg.value);
+        _forwardFunds(address(0));
     }
 
     // buy with a referrer
-    function buyKOTHWithReferrer(address referrer) public payable onlyKOTHRegistered() {
+    function buyKOTHWithReferrer(address referrer) public payable nonReentrant() onlyKOTHRegistered() {
         require(_referrer[referrer].isActive == true, "KOTHPresale: account is not a referrer");
         require(msg.value > 0, "KOTHPresale: purchase price can not be 0");
         uint256 nbKOTH = getKOTHAmount(msg.value);
         uint256 nbKOTHWithBonus = nbKOTH.add(percentageToAmount(nbKOTH, _kothBonusPercentage));
-        _koth.mint(_msgSender(), nbKOTHWithBonus);
-        // emit KOTHPurchased(msg.sender, parentReferrer, childReferrer, value, amount);
-        uint256 weiAmount = msg.value;
+        _processPurchase(nbKOTHWithBonus);
+        address parent;
+        address child;
         if (isOriginalReferrer(referrer)) {
-            uint256 reward = percentageToAmount(weiAmount, _originalReferrerPercentage);
-            payable(referrer).transfer(reward);
-            weiAmount = weiAmount.sub(reward);
+            parent = referrer;
+            child = address(0);
         } else {
-            uint256 parentReward =
-                percentageToAmount(weiAmount, _originalReferrerPercentage.sub(_childReferrerPercentage));
-            uint256 childReward = percentageToAmount(weiAmount, _childReferrerPercentage);
+            parent = _referrer[referrer].parent;
+            child = referrer;
+        }
+        emit KOTHPurchased(msg.sender, parent, child, msg.value, nbKOTHWithBonus);
+        _forwardFunds(referrer);
+    }
+
+    function _processPurchase(uint256 kothAmount) private {
+        _koth.mint(_msgSender(), kothAmount);
+    }
+
+    function _forwardFunds(address referrer) private {
+        uint256 parentReward;
+        uint256 childReward;
+        uint256 remainingWeiAmount;
+        if (isOriginalReferrer(referrer)) {
+            parentReward = percentageToAmount(msg.value, _originalReferrerPercentage);
+            payable(referrer).transfer(parentReward);
+        } else {
+            childReward = percentageToAmount(msg.value, _childReferrerPercentage);
+            parentReward = percentageToAmount(msg.value, _originalReferrerPercentage.sub(_childReferrerPercentage));
             payable(referrer).transfer(childReward);
             payable(_referrer[referrer].parent).transfer(parentReward);
-            weiAmount = weiAmount.sub(parentReward).sub(childReward);
         }
-        _weiRaised = _weiRaised.add(weiAmount);
-        _wallet.transfer(weiAmount);
+        remainingWeiAmount = msg.value.sub(parentReward).sub(childReward);
+        _weiRaised = _weiRaised.add(remainingWeiAmount);
+        _wallet.transfer(remainingWeiAmount);
     }
 }
