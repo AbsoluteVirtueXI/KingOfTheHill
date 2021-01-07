@@ -9,7 +9,18 @@ const KingOfTheHill = contract.fromArtifact('KingOfTheHill');
 const KOTHPresale = contract.fromArtifact('KOTHPResale');
 
 describe('KOTHPresale contract', function () {
-  const [owner, wallet, dev, user1, user2, registryFunder] = accounts;
+  const [
+    owner,
+    wallet,
+    dev,
+    referrer1,
+    referrer2,
+    childReferrer1,
+    childReferrer2,
+    user1,
+    user2,
+    registryFunder,
+  ] = accounts;
   const KOTH_PRICE = ether('0.1');
   beforeEach(async function () {
     this.erc1820 = await singletons.ERC1820Registry(registryFunder);
@@ -42,15 +53,48 @@ describe('KOTHPresale contract', function () {
     it('has a KOTH price', async function () {
       expect(await this.presale.getKOTHPrice()).to.be.a.bignumber.equal(KOTH_PRICE);
     });
+    it('KOTH token is not registered at first deployment', async function () {
+      expect(await this.presale.getKOTH()).to.equal(constants.ZERO_ADDRESS);
+    });
+    it('reverts if KOTH contract not registered and calling rate()', async function () {
+      await expectRevert(this.presale.rate(), 'KOTHPresale: KOTH token is not registered');
+    });
+    it('reverts if KOTH contract not registered and calling getKOTHAmount()', async function () {
+      await expectRevert(this.presale.getKOTHAmount(ether('1')), 'KOTHPresale: KOTH token is not registered');
+    });
+    it('reverts if KOTH token not registered and calling getPurchasePrice()', async function () {
+      await expectRevert(this.presale.getPurchasePrice(ether('10')), 'KOTHPresale: KOTH token is not registered');
+    });
+    it('reverts when buying tokens without referrer and KOTH token not registered', async function () {
+      await expectRevert(
+        this.presale.buyKOTH({ from: user1, value: ether('1') }),
+        'KOTHPresale: KOTH token is not registered'
+      );
+    });
+    it('reverts when buying tokens with a referrer and KOTH token not registered', async function () {
+      await expectRevert(
+        this.presale.buyKOTHWithReferrer(referrer1, { from: user1, value: ether('1') }),
+        'KOTHPresale: KOTH token is not registered'
+      );
+    });
+  });
+  context('KOTHPresale post-KOTH deployment', function () {
+    beforeEach(async function () {
+      this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
+      this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
+    });
+    it('KOTH token registers itself to presale contract', async function () {});
+  });
+  context('KOTHPresale percentage and price administration', function () {
+    beforeEach(async function () {
+      this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
+    });
     it('owner can set KOTH price', async function () {
       await this.presale.setKOTHPrice(ether('0.2'), { from: owner });
       expect(await this.presale.getKOTHPrice()).to.be.a.bignumber.equal(ether('0.2'));
     });
     it('reverts if set KOTH price not called by owner', async function () {
       await expectRevert(this.presale.setKOTHPrice(ether('0.2'), { from: dev }), 'Ownable: caller is not the owner');
-    });
-    it('KOTH token is not registered at first deployment', async function () {
-      expect(await this.presale.getKOTH()).to.equal(constants.ZERO_ADDRESS);
     });
     it('has a default 10% KOTH bonus percentage for buyers by referrers', async function () {
       expect(await this.presale.getKOTHBonusPercentage()).to.be.a.bignumber.equal(new BN(10));
@@ -59,13 +103,13 @@ describe('KOTHPresale contract', function () {
       await this.presale.setKOTHBonusPercentage(new BN(20), { from: owner });
       expect(await this.presale.getKOTHBonusPercentage()).to.be.a.bignumber.equal(new BN(20));
     });
-    it('reverts is KOTH bonus percentage is irrational', async function () {
+    it('reverts if KOTH bonus percentage is irrational', async function () {
       await expectRevert(
         this.presale.setKOTHBonusPercentage(new BN(101), { from: owner }),
         'KOTHPresale: KOTH bonus percentage greater than 100'
       );
     });
-    it('reverts is KOTH bonus percentage is not set by owner', async function () {
+    it('reverts if KOTH bonus percentage is not set by owner', async function () {
       await expectRevert(
         this.presale.setKOTHBonusPercentage(new BN(15), { from: dev }),
         'Ownable: caller is not the owner'
@@ -90,9 +134,47 @@ describe('KOTHPresale contract', function () {
         'Ownable: caller is not the owner'
       );
     });
+
+    it('has a default 7% child referrer percentage', async function () {
+      expect(await this.presale.getChildReferrerPercentage()).to.be.a.bignumber.equal(new BN(7));
+    });
+    it('owner can set the child referrer percentage', async function () {
+      await this.presale.setChildReferrerPercentage(new BN(8), { from: owner });
+      expect(await this.presale.getChildReferrerPercentage()).to.be.a.bignumber.equal(new BN(8));
+    });
+    it('reverts if child referrer percentage is irrational', async function () {
+      await expectRevert(
+        this.presale.setChildReferrerPercentage(new BN(11), { from: owner }),
+        'KOTHPresale: Original referrer percentage less than child percentage'
+      );
+    });
+    it('reverts if child referrer percentage is not set by owner', async function () {
+      await expectRevert(
+        this.presale.setChildReferrerPercentage(new BN(6), { from: dev }),
+        'Ownable: caller is not the owner'
+      );
+    });
+    it('has a default 3% parent referrer percentage', async function () {
+      expect(await this.presale.getParentReferrerPercentage()).to.be.a.bignumber.equal(new BN(3));
+    });
+    it('modifying original referrer percentage impact parent referrer percentage', async function () {
+      await this.presale.setOriginalReferrerPercentage(new BN(20), { from: owner });
+      const originalPercentage = await this.presale.getOriginalReferrerPercentage();
+      const childPercentage = await this.presale.getChildReferrerPercentage();
+      expect(await this.presale.getParentReferrerPercentage()).to.be.a.bignumber.equal(
+        originalPercentage.sub(childPercentage)
+      );
+    });
+    it('modifying child referrer percentage impact parent referrer percentage', async function () {
+      await this.presale.setChildReferrerPercentage(new BN(4), { from: owner });
+      const originalPercentage = await this.presale.getOriginalReferrerPercentage();
+      const childPercentage = await this.presale.getChildReferrerPercentage();
+      expect(await this.presale.getParentReferrerPercentage()).to.be.a.bignumber.equal(
+        originalPercentage.sub(childPercentage)
+      );
+    });
   });
-  context('KOTHPresale duo deployment with KOTH token', function () {});
-  context('KOTHPresale administration', function () {});
+  context('KOTHPresale referrer system', function () {});
   context('KOTHPresale selling without referrer', function () {});
   context('KOTHPresale selling with referrer', function () {});
 });
