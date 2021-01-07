@@ -11,7 +11,6 @@ contract KOTH is Context, CustomERC777, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
 
-    // TODO defaultOperators should be empty
     constructor(address owner, address presaleContract) CustomERC777("KOTH", "KOTH", new address[](0)) {
         _onCreate(owner, presaleContract);
     }
@@ -44,7 +43,6 @@ contract KOTH is Context, CustomERC777, AccessControl {
     }
 
     // Set game contract as default operator
-    // TODO TEST
     function addGameContract(address game) public onlyGameMaster() {
         require(game != address(0), "KOTH: game is zero address");
         require(defaultOperators().length == 0, "KOTH: game contract is already set");
@@ -52,7 +50,6 @@ contract KOTH is Context, CustomERC777, AccessControl {
     }
 
     // Unset game contract as default operator
-    // TODO TEST
     function removeGameContract(address game) public onlyGameMaster() {
         _removeDefaultOperator(game);
     }
