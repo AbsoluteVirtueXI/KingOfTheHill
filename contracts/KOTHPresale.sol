@@ -25,6 +25,14 @@ contract KOTHPresale is Context, Ownable {
 
     mapping(address => Referrer) private _referrer;
 
+    event KOTHPurchased(
+        address indexed purchaser,
+        address indexed parentReferrer,
+        address indexed childReferrer,
+        uint256 value,
+        uint256 amount
+    );
+
     constructor(
         address owner,
         address payable wallet_,
@@ -152,6 +160,7 @@ contract KOTHPresale is Context, Ownable {
         uint256 nbKOTH = getKOTHAmount(msg.value);
         _weiRaised = _weiRaised.add(msg.value);
         _koth.mint(_msgSender(), nbKOTH);
+        emit KOTHPurchased(_msgSender(), address(0), address(0), msg.value, nbKOTH);
         _wallet.transfer(msg.value);
     }
 
@@ -162,6 +171,7 @@ contract KOTHPresale is Context, Ownable {
         uint256 nbKOTH = getKOTHAmount(msg.value);
         uint256 nbKOTHWithBonus = nbKOTH.add(percentageToAmount(nbKOTH, _kothBonusPercentage));
         _koth.mint(_msgSender(), nbKOTHWithBonus);
+        // emit KOTHPurchased(msg.sender, parentReferrer, childReferrer, value, amount);
         uint256 weiAmount = msg.value;
         if (isOriginalReferrer(referrer)) {
             uint256 reward = percentageToAmount(weiAmount, _originalReferrerPercentage);
