@@ -117,6 +117,17 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
         return _childReferrerPercentage;
     }
 
+    function grantReferrer(address account) public onlyOwner() {
+        require(account != address(0), "KOTHPresale: zero address can not be a referrer");
+        _referrer[account] = Referrer(true, address(0));
+    }
+
+    function mintReferrer(address account) public {
+        require(_referrer[account].isActive == true, "KOTHPresale: account is not a referrer");
+        require(_referrer[account].parent == address(0), "KOTHPresale: account is not an original referrer");
+        _referrer[_msgSender()] = Referrer(true, account);
+    }
+
     function isReferrer(address account) public view returns (bool) {
         return _referrer[account].isActive;
     }
@@ -131,17 +142,6 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
 
     function parentReferrerOf(address account) public view returns (address) {
         return _referrer[account].parent;
-    }
-
-    function grantReferrer(address account) public onlyOwner() {
-        require(account != address(0), "KOTHPresale: zero address can not be a referrer");
-        _referrer[account] = Referrer(true, address(0));
-    }
-
-    function mintReferrer(address account) public {
-        require(_referrer[account].isActive == true, "KOTHPresale: account is not a referrer");
-        require(_referrer[account].parent == address(0), "KOTHPresale: account is not an original referrer");
-        _referrer[_msgSender()] = Referrer(true, account);
     }
 
     // @dev price of 1 KOTH has to be lesser than 1 ETHER else rate will be 0 !!!
