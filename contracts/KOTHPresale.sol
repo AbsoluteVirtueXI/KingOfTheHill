@@ -93,9 +93,9 @@ contract KOTHPresale is Context, Ownable {
     }
 
     function mintReferrer(address account) public {
-        require(_referrer[msg.sender].parent == address(0), "KOTHPresale: sender is not an original referrer");
-        require(_referrer[account].isActive == false, "KOTHPresale: account is already a child referrer");
-        _referrer[account] = Referrer(true, msg.sender);
+        require(_referrer[account].isActive == true, "KOTHPresale: account is not a referrer");
+        require(_referrer[account].parent == address(0), "KOTHPresale: account is not an original referrer");
+        _referrer[msg.sender] = Referrer(true, account);
     }
 
     // @dev price of 1 KOTH has to be lesser than 1 ETHER else rate will be 0 !!!
