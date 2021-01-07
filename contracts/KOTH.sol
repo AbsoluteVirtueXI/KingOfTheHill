@@ -1,41 +1,59 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.6.0 <0.8.0;
-import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/GSN/Context.sol";
+import "./CustomERC777.sol";
 import "./KingOfTheHill.sol";
+import "./KOTHPresale.sol";
 
-contract KOTH is Context, ERC777, AccessControl {
+contract KOTH is Context, CustomERC777, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
 
-    constructor(
-        address owner,
-        address presaleContract,
-        address[] memory defaultOperators_
-    ) ERC777("KOTH", "KOTH", defaultOperators_) {
-        require(defaultOperators().length == 1, "KOTH: Only 1 default operators allowed");
-        require(defaultOperators()[0] != address(0), "KOTH: Default operator can not be zero address");
+    // TODO defaultOperators should be empty
+    constructor(address owner, address presaleContract) CustomERC777("KOTH", "KOTH", new address[](0)) {
         _onCreate(owner, presaleContract);
     }
 
     function _onCreate(address owner, address presaleContract) private {
         _setupRole(DEFAULT_ADMIN_ROLE, owner);
+        _setupRole(GAME_MASTER_ROLE, owner);
         _setupRole(MINTER_ROLE, owner);
         _setupRole(MINTER_ROLE, presaleContract);
-        _register();
+        _register(presaleContract);
     }
 
-    function _register() private {
-        KingOfTheHill game = KingOfTheHill(defaultOperators()[0]);
-        game.setKOTH();
+    function _register(address presaleContract) private {
+        KOTHPresale presale = KOTHPresale(payable(presaleContract));
+        presale.setKOTH();
     }
 
-    modifier onlyMinter(address account) {
+    modifier onlyMinter() {
         require(hasRole(MINTER_ROLE, _msgSender()), "KOTH: sender must be a minter for minting");
         _;
     }
 
-    function mint(address account, uint256 amount) public onlyMinter(_msgSender()) {
+    modifier onlyGameMaster() {
+        require(hasRole(GAME_MASTER_ROLE, _msgSender()), "KOTH: sender must be a game master");
+        _;
+    }
+
+    function mint(address account, uint256 amount) public onlyMinter() {
         _mint(account, amount, "", "");
+    }
+
+    // Set game contract as default operator
+    // TODO TEST
+    function addGameContract(address game) public onlyGameMaster() {
+        require(game != address(0), "KOTH: game is zero address");
+        require(defaultOperators().length == 0, "KOTH: game contract is already set");
+        _addDefaultOperator(game);
+    }
+
+    // Unset game contract as default operator
+    // TODO TEST
+    function removeGameContract(address game) public onlyGameMaster() {
+        _removeDefaultOperator(game);
     }
 }
