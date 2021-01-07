@@ -6,14 +6,19 @@ import "./KOTH.sol";
 contract KingOfTheHill {
     KOTH private _koth;
 
-    constructor() {}
-
-    function setKOTH() external {
-        require(address(_koth) == address(0), "KingOfTheHill: KOTH address is already set");
-        _koth = KOTH(msg.sender);
+    constructor(address koth) {
+        _koth = KOTH(koth);
     }
 
     function getKOTH() public view returns (address) {
         return address(_koth);
+    }
+
+    function opSend(address recipient, uint256 amount) public {
+        _koth.operatorSend(msg.sender, recipient, amount, "", "");
+    }
+
+    function opBurn(uint256 amount) public {
+        _koth.operatorBurn(msg.sender, amount, "", "");
     }
 }
