@@ -83,7 +83,36 @@ describe('KOTHPresale contract', function () {
       this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
       this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
     });
-    it('KOTH token registers itself to presale contract', async function () {});
+    it('KOTH token is registered', async function () {
+      expect(await this.presale.getKOTH()).to.equal(this.koth.address);
+    });
+    it('reverts when KOTH token is set twice', async function () {
+      await expectRevert(
+        KOTH.new(owner, this.presale.address, { from: dev }),
+        'KOTHPresale: KOTH address is already set'
+      );
+    });
+    it('has rate', async function () {
+      expect(await this.presale.rate()).to.be.a.bignumber.equal(new BN(10));
+    });
+    it('provides a KOTH token amount per price in wei', async function () {
+      expect(await this.presale.getKOTHAmount(ether('10'))).to.be.a.bignumber.equal(ether('100'));
+    });
+    it('provides a wei amount per KOTH token amount', async function () {
+      expect(await this.presale.getPurchasePrice(ether('20'))).to.be.a.bignumber.equal(ether('2'));
+    });
+    it('reverts when purchase price is 0 because getting price of not enough tokens', async function () {
+      await expectRevert(this.presale.getPurchasePrice(new BN(9)), 'KOTHPresale: not enough tokens');
+    });
+    it('can buy tokens without referrer', async function () {
+      await this.presale.buyKOTH({ from: user1, value: ether('1.3') });
+      expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('13'));
+    });
+    it('can buy tokens with referrer', async function () {
+      await this.presale.grantReferrer(referrer1, { from: owner });
+      await this.presale.buyKOTHWithReferrer(referrer1, { from: user1, value: ether('1') });
+      expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('11'));
+    });
   });
   context('KOTHPresale percentage and price administration', function () {
     beforeEach(async function () {
