@@ -71,6 +71,25 @@ describe('KOTHPresale contract', function () {
         'Ownable: caller is not the owner'
       );
     });
+    it('has a default 10% original referrer percentage', async function () {
+      expect(await this.presale.getOriginalReferrerPercentage()).to.be.a.bignumber.equal(new BN(10));
+    });
+    it('owner can set the original referrer percentage', async function () {
+      await this.presale.setOriginalReferrerPercentage(new BN(20), { from: owner });
+      expect(await this.presale.getOriginalReferrerPercentage()).to.be.a.bignumber.equal(new BN(20));
+    });
+    it('reverts if original referrer percentage is irrational', async function () {
+      await expectRevert(
+        this.presale.setOriginalReferrerPercentage(new BN(101), { from: owner }),
+        'KOTHPresale: Original referrer percentage greater than 100'
+      );
+    });
+    it('reverts if original referrer percentage is not set by owner', async function () {
+      await expectRevert(
+        this.presale.setOriginalReferrerPercentage(new BN(15), { from: dev }),
+        'Ownable: caller is not the owner'
+      );
+    });
   });
   context('KOTHPresale duo deployment with KOTH token', function () {});
   context('KOTHPresale administration', function () {});

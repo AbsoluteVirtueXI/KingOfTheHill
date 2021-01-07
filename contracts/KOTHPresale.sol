@@ -100,7 +100,7 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
     function setChildReferrerPercentage(uint256 percentage) public onlyOwner() {
         require(
             _originalReferrerPercentage >= percentage,
-            "KOTHPresale: Original referrer percentage less than child percentage "
+            "KOTHPresale: Original referrer percentage less than child percentage"
         );
         _childReferrerPercentage = percentage;
     }
