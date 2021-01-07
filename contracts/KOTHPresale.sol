@@ -7,24 +7,23 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./KOTH.sol";
 
-// TODO need to check order of deployment between KOTH KOTHPresale and KingOfTheHill
 contract KOTHPresale is Context, Ownable {
     using SafeMath for uint256;
-
-    uint256 private _price;
-    uint256 private _weiRaised;
-    uint256 private _kothBonusPercentage;
-    uint256 private _originalReferrerPercentage;
-    uint256 private _referrerPercentage;
-    KOTH private _koth;
-    address payable private _wallet;
-
-    mapping(address => Referrer) private _referrer;
 
     struct Referrer {
         bool isActive;
         address parent;
     }
+
+    uint256 private _price;
+    uint256 private _weiRaised;
+    uint256 private _kothBonusPercentage;
+    uint256 private _originalReferrerPercentage;
+    uint256 private _childReferrerPercentage;
+    KOTH private _koth;
+    address payable private _wallet;
+
+    mapping(address => Referrer) private _referrer;
 
     constructor(
         address owner,
@@ -35,7 +34,7 @@ contract KOTHPresale is Context, Ownable {
         _price = price;
         _kothBonusPercentage = 10;
         _originalReferrerPercentage = 10;
-        _referrerPercentage = 7;
+        _childReferrerPercentage = 7;
         transferOwnership(owner);
     }
 
@@ -45,10 +44,9 @@ contract KOTHPresale is Context, Ownable {
     }
 
     // calculate the percentage of amount in wei
-    function percentageToAmount(uint256 amount, uint256 percentage) public pure returns(uint256) {
+    function percentageToAmount(uint256 amount, uint256 percentage) public pure returns (uint256) {
         return amount.mul(percentage).div(100);
     }
-
 
     function wallet() public view returns (address payable) {
         return _wallet;
@@ -76,26 +74,57 @@ contract KOTHPresale is Context, Ownable {
         return address(_koth);
     }
 
-    function isReferrer(address account) public view returns(bool) {
+    function setKOTHBonusPercentage(uint256 percentage) public onlyOwner() {
+        require(percentage <= 100, "KOTHPresale: KOTH bonus percentage greater than 100");
+        _kothBonusPercentage = percentage;
+    }
+
+    function setOriginalReferrerPercentage(uint256 percentage) public onlyOwner() {
+        require(percentage <= 100, "KOTHPresale: Original referrer percentage greater than 100");
+        _originalReferrerPercentage = percentage;
+    }
+
+    function setChildReferrerPercentage(uint256 percentage) public onlyOwner() {
+        require(
+            _originalReferrerPercentage >= percentage,
+            "KOTHPresale: Original referrer percentage less than child percentage "
+        );
+        _childReferrerPercentage = percentage;
+    }
+
+    function originalReferrerPercentage() public view returns (uint256) {
+        return _originalReferrerPercentage;
+    }
+
+    function parentReferrerPercentage() public view returns (uint256) {
+        return _originalReferrerPercentage.sub(_childReferrerPercentage);
+    }
+
+    function childReferrerPercentage() public view returns (uint256) {
+        return _childReferrerPercentage;
+    }
+
+    function isReferrer(address account) public view returns (bool) {
         return _referrer[account].isActive;
     }
 
-    function isOriginalReferrer(address account) public view returns(bool) {
+    function isOriginalReferrer(address account) public view returns (bool) {
         return _referrer[account].parent == address(0);
     }
 
-    function parentReferrerOf(address account) public view returns(address) {
+    function parentReferrerOf(address account) public view returns (address) {
         return _referrer[account].parent;
     }
 
     function grantReferrer(address account) public onlyOwner() {
+        require(account != address(0), "KOTHPresale: zero address can not be a referrer");
         _referrer[account] = Referrer(true, address(0));
     }
 
     function mintReferrer(address account) public {
         require(_referrer[account].isActive == true, "KOTHPresale: account is not a referrer");
         require(_referrer[account].parent == address(0), "KOTHPresale: account is not an original referrer");
-        _referrer[msg.sender] = Referrer(true, account);
+        _referrer[_msgSender()] = Referrer(true, account);
     }
 
     // @dev price of 1 KOTH has to be lesser than 1 ETHER else rate will be 0 !!!
@@ -128,10 +157,25 @@ contract KOTHPresale is Context, Ownable {
 
     // buy with a referrer
     function buyKOTHWithReferrer(address referrer) public payable onlyKOTHRegistered() {
-        require(referrer != address(0), "KOTHPresale: referrer is the zero address");
-        require(_isReferrer[referrer] == true, "KOTHPresale: account is not a valid referrer");
+        require(_referrer[referrer].isActive == true, "KOTHPresale: account is not a referrer");
         require(msg.value > 0, "KOTHPresale: purchase price can not be 0");
-        uint256 nbKOTH = getKOTHAmount(msg.value).add(percentageToAmount(nbKoth, _kothBonusPercentage));
-        nbKOTH = nbKOTH
+        uint256 nbKOTH = getKOTHAmount(msg.value);
+        uint256 nbKOTHWithBonus = nbKOTH.add(percentageToAmount(nbKOTH, _kothBonusPercentage));
+        _koth.mint(_msgSender(), nbKOTHWithBonus);
+        uint256 weiAmount = msg.value;
+        if (isOriginalReferrer(referrer)) {
+            uint256 reward = percentageToAmount(weiAmount, _originalReferrerPercentage);
+            payable(referrer).transfer(reward);
+            weiAmount = weiAmount.sub(reward);
+        } else {
+            uint256 parentReward =
+                percentageToAmount(weiAmount, _originalReferrerPercentage.sub(_childReferrerPercentage));
+            uint256 childReward = percentageToAmount(weiAmount, _childReferrerPercentage);
+            payable(referrer).transfer(childReward);
+            payable(_referrer[referrer].parent).transfer(parentReward);
+            weiAmount = weiAmount.sub(parentReward).sub(childReward);
+        }
+        _weiRaised = _weiRaised.add(weiAmount);
+        _wallet.transfer(weiAmount);
     }
 }
