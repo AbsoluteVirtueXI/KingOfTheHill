@@ -26,6 +26,7 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
 
     mapping(address => Referrer) private _referrer;
 
+    // Todo test
     event KOTHPurchased(
         address indexed purchaser,
         address indexed parentReferrer,
@@ -92,9 +93,17 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
         _kothBonusPercentage = percentage;
     }
 
+    function getOriginalReferrerPercentage() public view returns (uint256) {
+        return _originalReferrerPercentage;
+    }
+
     function setOriginalReferrerPercentage(uint256 percentage) public onlyOwner() {
         require(percentage <= 100, "KOTHPresale: Original referrer percentage greater than 100");
         _originalReferrerPercentage = percentage;
+    }
+
+    function getChildReferrerPercentage() public view returns (uint256) {
+        return _childReferrerPercentage;
     }
 
     function setChildReferrerPercentage(uint256 percentage) public onlyOwner() {
@@ -105,16 +114,8 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
         _childReferrerPercentage = percentage;
     }
 
-    function getOriginalReferrerPercentage() public view returns (uint256) {
-        return _originalReferrerPercentage;
-    }
-
     function getParentReferrerPercentage() public view returns (uint256) {
         return _originalReferrerPercentage.sub(_childReferrerPercentage);
-    }
-
-    function getChildReferrerPercentage() public view returns (uint256) {
-        return _childReferrerPercentage;
     }
 
     function grantReferrer(address account) public onlyOwner() {
