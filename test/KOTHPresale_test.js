@@ -117,10 +117,15 @@ describe('KOTHPresale contract', function () {
   context('KOTHPresale percentage and price administration', function () {
     beforeEach(async function () {
       this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
+      this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
     });
     it('owner can set KOTH price', async function () {
       await this.presale.setKOTHPrice(ether('0.2'), { from: owner });
       expect(await this.presale.getKOTHPrice()).to.be.a.bignumber.equal(ether('0.2'));
+    });
+    it('price changes impact rate', async function () {
+      await this.presale.setKOTHPrice(ether('0.2'), { from: owner });
+      expect(await this.presale.rate()).to.be.a.bignumber.equal(new BN(5));
     });
     it('reverts if set KOTH price not called by owner', async function () {
       await expectRevert(this.presale.setKOTHPrice(ether('0.2'), { from: dev }), 'Ownable: caller is not the owner');
