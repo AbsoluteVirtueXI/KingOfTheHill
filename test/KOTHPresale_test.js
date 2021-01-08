@@ -203,7 +203,63 @@ describe('KOTHPresale contract', function () {
       );
     });
   });
-  context('KOTHPresale referrer system', function () {});
-  context('KOTHPresale selling without referrer', function () {});
-  context('KOTHPresale selling with referrer', function () {});
+  context('KOTHPresale referrer system', function () {
+    beforeEach(async function () {
+      this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
+    });
+    it('owner can grant referrer', async function () {
+      expect(await this.presale.isReferrer(referrer1), `${referrer1} must not be a referrer`).to.be.false;
+      expect(
+        await this.presale.isOriginalReferrer(referrer1),
+        `${referrer1} must not be an original referrer`
+      ).to.be.false;
+      expect(await this.presale.isChildReferrer(referrer1), `${referrer1} must not be a child referrer`).to.be.false;
+      expect(await this.presale.parentReferrerOf(referrer1), `${referrer1} must not have a parent referrer`).to.equal(
+        constants.ZERO_ADDRESS
+      );
+      await this.presale.grantReferrer(referrer1, { from: owner });
+      expect(await this.presale.isReferrer(referrer1), `${referrer1} must be a referrer`).to.be.true;
+      expect(await this.presale.isOriginalReferrer(referrer1), `${referrer1} must be an original referrer`).to.be.true;
+      expect(await this.presale.isChildReferrer(referrer1), `${referrer1} must not be a child referrer`).to.be.false;
+      expect(await this.presale.parentReferrerOf(referrer1), `${referrer1} must not have a parent referrer`).to.equal(
+        constants.ZERO_ADDRESS
+      );
+    });
+    it('reverts if not an owner grants referrer', async function () {
+      await expectRevert(this.presale.grantReferrer(referrer1, { from: dev }), 'Ownable: caller is not the owner');
+    });
+    it('a user can become a child referrer', async function () {
+      await this.presale.grantReferrer(referrer1, { from: owner });
+      await this.presale.mintReferrer(referrer1, { from: childReferrer1 });
+      expect(await this.presale.isReferrer(referrer1), `${childReferrer1} must be a referrer`).to.be.true;
+      expect(
+        await this.presale.isOriginalReferrer(childReferrer1),
+        `${childReferrer1} must not be an original referrer`
+      ).to.be.false;
+      expect(
+        await this.presale.isChildReferrer(childReferrer1),
+        `${childReferrer1} must be a child referrer`
+      ).to.be.true;
+      expect(
+        await this.presale.parentReferrerOf(childReferrer1),
+        `${childReferrer1} must have a parent referrer`
+      ).to.equal(referrer1);
+    });
+    it('reverts if a user try to become a child referrer of a non active referrer', async function () {
+      await expectRevert(
+        this.presale.mintReferrer(referrer1, { from: childReferrer1 }),
+        'KOTHPresale: account is not a referrer'
+      );
+    });
+    it('reverts if a user try to become a child referrer of a non original referrer', async function () {
+      await this.presale.grantReferrer(referrer1, { from: owner });
+      await this.presale.mintReferrer(referrer1, { from: childReferrer1 });
+      await expectRevert(
+        this.presale.mintReferrer(childReferrer1, { from: childReferrer2 }),
+        'KOTHPresale: account is not an original referrer'
+      );
+    });
+  });
+  context('KOTHPresale buying without referrer', function () {});
+  context('KOTHPresale buying with referrer', function () {});
 });
