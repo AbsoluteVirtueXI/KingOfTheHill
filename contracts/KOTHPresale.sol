@@ -204,7 +204,7 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
         if (isOriginalReferrer(referrer)) {
             parentReward = percentageToAmount(msg.value, _originalReferrerPercentage);
             payable(referrer).transfer(parentReward);
-        } else {
+        } else if (isChildReferrer(referrer)) {
             childReward = percentageToAmount(msg.value, _childReferrerPercentage);
             parentReward = percentageToAmount(msg.value, _originalReferrerPercentage.sub(_childReferrerPercentage));
             payable(referrer).transfer(childReward);
