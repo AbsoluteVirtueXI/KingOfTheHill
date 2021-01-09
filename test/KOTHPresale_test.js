@@ -1,7 +1,16 @@
 /* eslint-disable comma-dangle */
 /* eslint-disable no-unused-expressions */
 const { contract, accounts, web3 } = require('@openzeppelin/test-environment');
-const { BN, expectRevert, constants, singletons, ether } = require('@openzeppelin/test-helpers');
+const {
+  BN,
+  expectRevert,
+  expectEvent,
+  constants,
+  singletons,
+  ether,
+  balance,
+  send,
+} = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const KOTH = contract.fromArtifact('KOTH');
@@ -265,6 +274,56 @@ describe('KOTHPresale contract', function () {
       );
     });
   });
-  context('KOTHPresale buying without referrer', function () {});
+  context('KOTHPresale buying without referrer', function () {
+    beforeEach(async function () {
+      this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
+      this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
+    });
+    it('user can buy KOTH tokens from buyKOTH function', async function () {
+      expect(await this.koth.balanceOf(user1), 'balance of user1 must be 0').to.be.a.bignumber.equal(ether('0'));
+      await this.presale.buyKOTH({ from: user1, value: ether('1') });
+      expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('10'));
+    });
+    it('user can buy KOTH tokens by sending ether to contract', async function () {
+      await send.ether(user2, this.presale.address, ether('0.4'));
+      expect(await this.koth.balanceOf(user2)).to.be.a.bignumber.equal(ether('4'));
+    });
+    it('reverts if purchase is made with 0 ether', async function () {
+      await expectRevert(
+        this.presale.buyKOTH({ from: user1, value: ether('0') }),
+        'KOTHPresale: purchase price can not be 0'
+      );
+    });
+    it('wallet receives wei amount of purchases', async function () {
+      const walletBalance = await balance.current(wallet);
+      await this.presale.buyKOTH({ from: user1, value: ether('1') });
+      await this.presale.buyKOTH({ from: user2, value: ether('3.5') });
+      expect(await balance.current(wallet)).to.be.a.bignumber.equal(walletBalance.add(ether('4.5')));
+    });
+    it('update wei amount raised', async function () {
+      await this.presale.buyKOTH({ from: user1, value: ether('1') });
+      await this.presale.buyKOTH({ from: user2, value: ether('3.5') });
+      await this.presale.buyKOTH({ from: user1, value: ether('0.1') });
+      expect(await this.presale.weiRaised()).to.be.a.bignumber.equal(ether('4.6'));
+    });
+    it('emits KOTHPurchased event when a purchase is made', async function () {
+      const purchaseReceipt1 = await this.presale.buyKOTH({ from: user1, value: ether('1') });
+      expectEvent(purchaseReceipt1, 'KOTHPurchased', {
+        purchaser: user1,
+        parentReferrer: constants.ZERO_ADDRESS,
+        childReferrer: constants.ZERO_ADDRESS,
+        value: ether('1'),
+        amount: ether('10'),
+      });
+      const purchaseReceipt2 = await this.presale.buyKOTH({ from: user2, value: ether('0.3') });
+      expectEvent(purchaseReceipt2, 'KOTHPurchased', {
+        purchaser: user2,
+        parentReferrer: constants.ZERO_ADDRESS,
+        childReferrer: constants.ZERO_ADDRESS,
+        value: ether('0.3'),
+        amount: ether('3'),
+      });
+    });
+  });
   context('KOTHPresale buying with referrer', function () {});
 });
