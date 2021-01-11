@@ -10,16 +10,21 @@ import "./KOTHPresale.sol";
 contract KOTH is Context, CustomERC777, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
+    //TODO TEST
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     constructor(address owner, address presaleContract) CustomERC777("KOTH", "KOTH", new address[](0)) {
         _onCreate(owner, presaleContract);
     }
 
     function _onCreate(address owner, address presaleContract) private {
+        _pause();
         _setupRole(DEFAULT_ADMIN_ROLE, owner);
         _setupRole(GAME_MASTER_ROLE, owner);
         _setupRole(MINTER_ROLE, owner);
         _setupRole(MINTER_ROLE, presaleContract);
+        _setupRole(PAUSER_ROLE, owner);
+        _setupRole(PAUSER_ROLE, presaleContract);
         _register(presaleContract);
     }
 
@@ -36,6 +41,20 @@ contract KOTH is Context, CustomERC777, AccessControl {
     modifier onlyGameMaster() {
         require(hasRole(GAME_MASTER_ROLE, _msgSender()), "KOTH: sender must be a game master");
         _;
+    }
+
+    // TODO: TEST
+    modifier onlyPauser() {
+        require(hasRole(PAUSER_ROLE, _msgSender()), "KOTH: sender must be a pauser");
+        _;
+    }
+
+    function pause() public onlyPauser() {
+        _pause();
+    }
+
+    function unpause() public onlyPauser() {
+        _unpause();
     }
 
     function mint(address account, uint256 amount) public onlyMinter() {
