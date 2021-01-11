@@ -8,6 +8,7 @@ const KOTH = contract.fromArtifact('KOTH');
 const KOTHPresale = contract.fromArtifact('KOTHPResale');
 
 describe('KOTHPresale contract', function () {
+  this.timeout(0);
   const [
     owner,
     wallet,
