@@ -6,9 +6,11 @@ import "@openzeppelin/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+
 import "./KOTH.sol";
 
-contract KOTHPresale is Context, Ownable, ReentrancyGuard {
+contract KOTHPresale is Context, Ownable, Pausable, ReentrancyGuard {
     using SafeMath for uint256;
 
     struct Referrer {
@@ -40,6 +42,7 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
         address payable wallet_,
         uint256 price
     ) {
+        _pause();
         _wallet = wallet_;
         _price = price;
         _kothBonusPercentage = 10;
@@ -160,12 +163,21 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
         return purchasePrice;
     }
 
+    function pause() public onlyOwner() onlyKOTHRegistered() {
+        _pause();
+        _koth.unpause();
+    }
+
+    function unpause() public onlyOwner() {
+        _unpause();
+    }
+
     receive() external payable {
         buyKOTH();
     }
 
     // buy without referrer
-    function buyKOTH() public payable nonReentrant() onlyKOTHRegistered() {
+    function buyKOTH() public payable whenNotPaused() nonReentrant() onlyKOTHRegistered() {
         require(msg.value > 0, "KOTHPresale: purchase price can not be 0");
         uint256 nbKOTH = getKOTHAmount(msg.value);
         _processPurchase(nbKOTH);
@@ -174,8 +186,11 @@ contract KOTHPresale is Context, Ownable, ReentrancyGuard {
     }
 
     // buy with a referrer
-    function buyKOTHWithReferrer(address referrer) public payable nonReentrant() onlyKOTHRegistered() {
+    function buyKOTHWithReferrer(address referrer) public payable whenNotPaused() nonReentrant() onlyKOTHRegistered() {
         require(_referrer[referrer].isActive == true, "KOTHPresale: account is not a referrer");
+        if (isChildReferrer(referrer)) {
+            require(_msgSender() != referrer, "KOTHPresale: child referrer can not buy for himself");
+        }
         require(msg.value > 0, "KOTHPresale: purchase price can not be 0");
         uint256 nbKOTH = getKOTHAmount(msg.value);
         uint256 nbKOTHWithBonus = nbKOTH.add(percentageToAmount(nbKOTH, _kothBonusPercentage));
