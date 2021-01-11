@@ -9,13 +9,14 @@ const KingOfTheHill = contract.fromArtifact('KingOfTheHill');
 const KOTHPresale = contract.fromArtifact('KOTHPresale');
 
 describe('KOTH token', function () {
-  const [owner, wallet, dev, user1, user2, registryFunder] = accounts;
+  const [owner, wallet, dev, user1, user2, user3, registryFunder, exchange] = accounts;
   const KOTH_NAME = 'KOTH';
   const KOTH_SYMBOL = 'KOTH';
   const DECIMALS = 18;
   const DEFAULT_ADMIN_ROLE = constants.ZERO_BYTES32;
   const MINTER_ROLE = web3.utils.soliditySha3('MINTER_ROLE');
   const GAME_MASTER_ROLE = web3.utils.soliditySha3('GAME_MASTER_ROLE');
+  const PAUSER_ROLE = web3.utils.soliditySha3('PAUSER_ROLE');
   const PRICE = ether('0.1');
   beforeEach(async function () {
     this.erc1820 = await singletons.ERC1820Registry(registryFunder);
@@ -55,8 +56,15 @@ describe('KOTH token', function () {
     it(`has owner, ${owner}, as MINTER_ROLE`, async function () {
       expect(await this.koth.hasRole(MINTER_ROLE, owner)).to.be.true;
     });
+    it(`has owner, ${owner}, as PAUSER_ROLE`, async function () {
+      expect(await this.koth.hasRole(PAUSER_ROLE, owner)).to.be.true;
+    });
+
     it('has presale contract as MINTER_ROLE', async function () {
       expect(await this.koth.hasRole(MINTER_ROLE, this.presale.address)).to.be.true;
+    });
+    it('has presale contract as PAUSER_ROLE', async function () {
+      expect(await this.koth.hasRole(PAUSER_ROLE, this.presale.address)).to.be.true;
     });
     it('has only 2 MINTER_ROLE', async function () {
       expect(await this.koth.getRoleMemberCount(MINTER_ROLE)).to.a.bignumber.equal(new BN(2));
@@ -73,6 +81,9 @@ describe('KOTH token', function () {
     it('owner can revoke GAME_MASTER_ROLE', async function () {
       await this.koth.revokeRole(GAME_MASTER_ROLE, owner, { from: owner });
     });
+    it('has a pause state', async function () {
+      expect(await this.koth.paused()).to.be.true;
+    });
   });
   context('KOTH minting', function () {
     beforeEach(async function () {
@@ -83,14 +94,69 @@ describe('KOTH token', function () {
       expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(new BN(101));
     });
     it('presale contract can mint KOTH', async function () {
+      await this.presale.unpause({ from: owner });
       const purchasePrice = ether('21');
       const nbKOTH = await this.presale.getKOTHAmount(purchasePrice);
       await this.presale.buyKOTH({ from: user2, value: purchasePrice });
-      // await this.koth.mint(user2, new BN(102), { from: this.presale.address });
       expect(await this.koth.balanceOf(user2)).to.be.a.bignumber.equal(nbKOTH);
     });
     it('reverts if not a MINTER_ROLE calls mint function', async function () {
       await expectRevert(this.koth.mint(dev, new BN(1337), { from: dev }), 'KOTH: sender must be a minter for minting');
+    });
+  });
+  context('KOTH pause/unpause', function () {
+    beforeEach(async function () {
+      this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
+    });
+    it('KOTH token is paused by default', async function () {
+      expect(await this.koth.paused()).to.be.true;
+    });
+    it('owner can unpause KOTH token contract', async function () {
+      await this.koth.unpause({ from: owner });
+      expect(await this.koth.paused()).to.be.false;
+    });
+    it('presale can unpause KOTH token contract when presale is done', async function () {
+      const presale = await KOTHPresale.new(owner, wallet, PRICE, { from: dev });
+      const koth = await KOTH.new(owner, presale.address, { from: dev });
+      expect(await presale.paused()).to.be.true;
+      expect(await presale.paused()).to.be.true;
+      await presale.unpause({ from: owner });
+      expect(await koth.paused()).to.be.true;
+      expect(await presale.paused()).to.be.false;
+      await presale.pause({ from: owner });
+      expect(await presale.paused()).to.be.true;
+      expect(await koth.paused()).to.be.false;
+    });
+    it('reverts if pause/unpause is not called by a PAUSER_ROLE', async function () {
+      await expectRevert(this.koth.pause({ from: user1 }), 'KOTH: sender must be a pauser');
+      await this.koth.unpause({ from: owner });
+      await expectRevert(this.koth.unpause({ from: user1 }), 'KOTH: sender must be a pauser');
+    });
+    it('minting from owner and presale works while KOTH contract is paused', async function () {
+      await this.koth.mint(user1, ether('50'), { from: owner });
+      expect(await this.koth.balanceOf(user1), 'wrong user1 KOTH balance').to.be.a.bignumber.equal(ether('50'));
+      await this.presale.unpause({ from: owner });
+      await this.presale.buyKOTH({ from: user2, value: ether('6') });
+      expect(await this.koth.balanceOf(user2), 'wrong user2 KOTH balance').to.be.a.bignumber.equal(ether('60'));
+    });
+    it('can transfer/transferForm/approve while unpaused', async function () {
+      await this.koth.unpause({ from: owner });
+      await this.koth.mint(user1, ether('10'), { from: owner });
+      await this.koth.transfer(user2, ether('4'), { from: user1 });
+      expect(await this.koth.balanceOf(user2), 'wrong user2 KOTH balance').to.be.a.bignumber.equal(ether('4'));
+      await this.koth.approve(exchange, ether('6'), { from: user1 });
+      expect(await this.koth.allowance(user1, exchange)).to.be.a.bignumber.equal(ether('6'));
+      await this.koth.transferFrom(user1, user3, ether('6'), { from: exchange });
+      expect(await this.koth.balanceOf(user3), 'wrong user3 KOTH balance').to.be.a.bignumber.equal(ether('6'));
+    });
+    it('reverts when transfer/transferFrom/approve is called while paused', async function () {
+      await this.koth.mint(user1, ether('5'), { from: owner });
+      await expectRevert(this.koth.transfer(user2, ether('4'), { from: user1 }), 'Pausable: paused');
+      await expectRevert(this.koth.approve(user2, ether('5'), { from: user1 }), 'Pausable: paused');
+      await expectRevert(
+        this.koth.transferFrom(user1, user2, ether('6'), { from: this.presale.address }),
+        'Pausable: paused'
+      );
     });
   });
   context('KOTH: KingOfTheHill default operator', function () {
@@ -145,7 +211,7 @@ describe('KOTH token', function () {
       expect(await this.koth.balanceOf(user1), 'user1 balance must be 5 KOTH').to.be.a.bignumber.equal(ether('5'));
       expect(await this.koth.balanceOf(user2), 'user2 balance must be 7 KOTH').to.be.a.bignumber.equal(ether('7'));
     });
-    it('game contract as default operator can burn tokens on behalf ol all the token holders', async function () {
+    it('game contract as default operator can burn tokens on behalf of all the token holders', async function () {
       await this.koth.addGameContract(this.kingOfTheHill.address, { from: owner });
       await this.koth.mint(user1, ether('12'), { from: owner });
       await this.kingOfTheHill.opBurn(ether('11'), { from: user1 });

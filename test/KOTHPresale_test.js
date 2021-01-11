@@ -1,20 +1,10 @@
 /* eslint-disable comma-dangle */
 /* eslint-disable no-unused-expressions */
 const { contract, accounts, web3 } = require('@openzeppelin/test-environment');
-const {
-  BN,
-  expectRevert,
-  expectEvent,
-  constants,
-  singletons,
-  ether,
-  balance,
-  send,
-} = require('@openzeppelin/test-helpers');
+const { BN, expectRevert, expectEvent, constants, singletons, ether, balance } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const KOTH = contract.fromArtifact('KOTH');
-const KingOfTheHill = contract.fromArtifact('KingOfTheHill');
 const KOTHPresale = contract.fromArtifact('KOTHPResale');
 
 describe('KOTHPresale contract', function () {
@@ -56,6 +46,9 @@ describe('KOTHPresale contract', function () {
     it('has wallet', async function () {
       expect(await this.presale.wallet()).to.equal(wallet);
     });
+    it('is paused by default', async function () {
+      expect(await this.presale.paused()).to.be.true;
+    });
     it('has raised 0 wei at deployment', async function () {
       expect(await this.presale.weiRaised()).to.be.a.bignumber.equal(new BN(0));
     });
@@ -75,12 +68,14 @@ describe('KOTHPresale contract', function () {
       await expectRevert(this.presale.getPurchasePrice(ether('10')), 'KOTHPresale: KOTH token is not registered');
     });
     it('reverts when buying tokens without referrer and KOTH token not registered', async function () {
+      await this.presale.unpause({ from: owner });
       await expectRevert(
         this.presale.buyKOTH({ from: user1, value: ether('1') }),
         'KOTHPresale: KOTH token is not registered'
       );
     });
     it('reverts when buying tokens with a referrer and KOTH token not registered', async function () {
+      await this.presale.unpause({ from: owner });
       await expectRevert(
         this.presale.buyKOTHWithReferrer(referrer1, { from: user1, value: ether('1') }),
         'KOTHPresale: KOTH token is not registered'
@@ -91,6 +86,7 @@ describe('KOTHPresale contract', function () {
     beforeEach(async function () {
       this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
       this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
+      await this.presale.unpause({ from: owner });
     });
     it('KOTH token is registered', async function () {
       expect(await this.presale.getKOTH()).to.equal(this.koth.address);
@@ -274,10 +270,52 @@ describe('KOTHPresale contract', function () {
       );
     });
   });
+  context('KOTHPresale pause/unpause', function () {
+    beforeEach(async function () {
+      this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
+      this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
+    });
+    it('presale is paused by default', async function () {
+      expect(await this.presale.paused()).to.be.true;
+    });
+    it('KOTH contract is paused by default', async function () {
+      expect(await this.koth.paused()).to.be.true;
+    });
+    it('owner can start presale', async function () {
+      await this.presale.unpause({ from: owner });
+      expect(await this.presale.paused()).to.be.false;
+    });
+    it('reverts if not an owner starts presale', async function () {
+      await expectRevert(this.presale.unpause({ from: dev }), 'Ownable: caller is not the owner');
+    });
+    it('stopping the presale unpause the KOTH contract', async function () {
+      await this.presale.unpause({ from: owner }); // start the presale
+      await this.presale.pause({ from: owner }); // stop the presale and should unpause the KOTH contract
+      expect(await this.koth.paused()).to.be.false;
+    });
+    it('reverts when buying while presale is not running', async function () {
+      await expectRevert(this.presale.buyKOTH({ from: user1, value: ether('1') }), 'Pausable: paused');
+      await expectRevert(
+        web3.eth.sendTransaction({
+          from: user2,
+          to: this.presale.address,
+          value: ether('0.4'),
+          gas: 6721975,
+        }),
+        'Pausable: paused'
+      );
+      await this.presale.grantReferrer(referrer1, { from: owner });
+      await expectRevert(
+        this.presale.buyKOTHWithReferrer(referrer1, { from: user2, value: ether('2') }),
+        'Pausable: paused'
+      );
+    });
+  });
   context('KOTHPresale buying without referrer', function () {
     beforeEach(async function () {
       this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
       this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
+      await this.presale.unpause({ from: owner });
     });
     it('user can buy KOTH tokens from buyKOTH function', async function () {
       expect(await this.koth.balanceOf(user1), 'balance of user1 must be 0').to.be.a.bignumber.equal(ether('0'));
@@ -285,7 +323,12 @@ describe('KOTHPresale contract', function () {
       expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('10'));
     });
     it('user can buy KOTH tokens by sending ether to contract', async function () {
-      await send.ether(user2, this.presale.address, ether('0.4'));
+      await web3.eth.sendTransaction({
+        from: user2,
+        to: this.presale.address,
+        value: ether('0.4'),
+        gas: 6721975,
+      });
       expect(await this.koth.balanceOf(user2)).to.be.a.bignumber.equal(ether('4'));
     });
     it('reverts if purchase is made with 0 ether', async function () {
@@ -325,5 +368,77 @@ describe('KOTHPresale contract', function () {
       });
     });
   });
-  context('KOTHPresale buying with referrer', function () {});
+  context('KOTHPresale buying with referrer', function () {
+    beforeEach(async function () {
+      this.presale = await KOTHPresale.new(owner, wallet, KOTH_PRICE, { from: dev });
+      this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
+      await this.presale.unpause({ from: owner });
+      await this.presale.grantReferrer(referrer1, { from: owner });
+      await this.presale.grantReferrer(referrer2, { from: owner });
+      await this.presale.mintReferrer(referrer1, { from: childReferrer1 });
+      await this.presale.mintReferrer(referrer2, { from: childReferrer2 });
+    });
+    it('user can buy KOTH tokens with a bonus if using an original referrer', async function () {
+      await this.presale.buyKOTHWithReferrer(referrer1, { from: user1, value: ether('1') });
+      expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('11'));
+    });
+    it('user can buy KOTH tokens with bonus if using a child referrer', async function () {
+      await this.presale.buyKOTHWithReferrer(childReferrer1, { from: user1, value: ether('1') });
+      expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('11'));
+    });
+    it('reverts if purchase is made with 0 ether', async function () {
+      await expectRevert(
+        this.presale.buyKOTHWithReferrer(childReferrer2, { from: user1, value: ether('0') }),
+        'KOTHPresale: purchase price can not be 0'
+      );
+    });
+    it('reverts is purchase is made with a not active referrer', async function () {
+      await expectRevert(
+        this.presale.buyKOTHWithReferrer(user2, { from: user1, value: ether('0') }),
+        'KOTHPresale: account is not a referrer'
+      );
+    });
+    it('buying with original referrer gives purchase price percentage to original referrer', async function () {
+      const referrer1Balance = await balance.current(referrer1);
+      await this.presale.buyKOTHWithReferrer(referrer1, { from: user2, value: ether('2') });
+      expect(await balance.current(referrer1)).to.be.a.bignumber.equal(referrer1Balance.add(ether('0.2')));
+    });
+    it('buying with child referrer gives purchase price percentage to parent and child referrer', async function () {
+      const referrer2Balance = await balance.current(referrer2);
+      const childReferrer2Balance = await balance.current(childReferrer2);
+      await this.presale.buyKOTHWithReferrer(childReferrer2, { from: user2, value: ether('1') });
+      expect(await balance.current(referrer2), 'wrong parent ether balance').to.be.a.bignumber.equal(
+        referrer2Balance.add(ether('0.03'))
+      );
+      expect(await balance.current(childReferrer2), 'wrong child ether balance').to.be.a.bignumber.equal(
+        childReferrer2Balance.add(ether('0.07'))
+      );
+    });
+    it('buying with any referrer gives 90% to wallet', async function () {
+      const walletBalance = await balance.current(wallet);
+      await this.presale.buyKOTHWithReferrer(childReferrer2, { from: user2, value: ether('1') });
+      await this.presale.buyKOTHWithReferrer(referrer2, { from: user2, value: ether('2') });
+      expect(await balance.current(wallet)).to.be.a.bignumber.equal(walletBalance.add(ether('2.7')));
+    });
+    it('Original referrer can buy token for himself and get double bonus (price and nb KOTH)', async function () {
+      const referrer1Balance = await balance.current(referrer1);
+      await this.presale.buyKOTHWithReferrer(referrer1, {
+        from: referrer1,
+        value: ether('10'),
+        gasPrice: 0,
+      });
+      expect(await this.koth.balanceOf(referrer1), 'wrong referrer1 KOTH balance').to.be.a.bignumber.equal(
+        ether('110')
+      );
+      expect(await balance.current(referrer1), 'wrong referrer1 ether balance').to.be.a.bignumber.equal(
+        referrer1Balance.sub(ether('9'))
+      );
+    });
+    it('reverts when child referrer buy token for himself', async function () {
+      await expectRevert(
+        this.presale.buyKOTHWithReferrer(childReferrer1, { from: childReferrer1, value: ether('2') }),
+        'KOTHPresale: child referrer can not buy for himself'
+      );
+    });
+  });
 });
