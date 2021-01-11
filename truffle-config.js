@@ -68,6 +68,23 @@ module.exports = {
       timeoutBlocks: 200,
       skipDryRun: true,
     },
+    goerli: {
+      provider: () => new HDWalletProvider(mnemonic, `https://goerli.infura.io/v3/${projectId}`),
+      network_id: 5,
+      gas: 6721975,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      skipDryRun: true,
+    },
+    kovan: {
+      provider: () => new HDWalletProvider(mnemonic, `wss://kovan.infura.io/ws/v3/${projectId}`),
+      network_id: 42,
+      gas: 6721975,
+      gasPrice: 10000000000,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      skipDryRun: true,
+    },
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port
