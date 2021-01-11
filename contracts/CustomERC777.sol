@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/introspection/IERC1820Registry.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @dev Implementation of the {IERC777} interface.
@@ -26,7 +27,7 @@ import "@openzeppelin/contracts/introspection/IERC1820Registry.sol";
  * are no special restrictions in the amount of tokens that created, moved, or
  * destroyed. This makes integration with ERC20 applications seamless.
  */
-contract CustomERC777 is Context, IERC777, IERC20 {
+contract CustomERC777 is Context, IERC777, IERC20, Pausable {
     using SafeMath for uint256;
     using Address for address;
 
@@ -152,7 +153,7 @@ contract CustomERC777 is Context, IERC777, IERC20 {
      *
      * Also emits a {Sent} event.
      */
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
+    function transfer(address recipient, uint256 amount) public override whenNotPaused() returns (bool) {
         require(recipient != address(0), "ERC777: transfer to the zero address");
 
         address from = _msgSender();
@@ -171,7 +172,7 @@ contract CustomERC777 is Context, IERC777, IERC20 {
      *
      * Also emits a {IERC20-Transfer} event for ERC20 compatibility.
      */
-    function burn(uint256 amount, bytes memory data) public override {
+    function burn(uint256 amount, bytes memory data) public override whenNotPaused() {
         _burn(_msgSender(), amount, data, "");
     }
 
@@ -288,7 +289,7 @@ contract CustomERC777 is Context, IERC777, IERC20 {
      *
      * Note that accounts cannot have allowance issued by their operators.
      */
-    function approve(address spender, uint256 value) public override returns (bool) {
+    function approve(address spender, uint256 value) public override whenNotPaused() returns (bool) {
         address holder = _msgSender();
         _approve(holder, spender, value);
         return true;
@@ -307,7 +308,7 @@ contract CustomERC777 is Context, IERC777, IERC20 {
         address holder,
         address recipient,
         uint256 amount
-    ) public override returns (bool) {
+    ) public override whenNotPaused() returns (bool) {
         require(recipient != address(0), "ERC777: transfer to the zero address");
         require(holder != address(0), "ERC777: transfer from the zero address");
 
