@@ -10,7 +10,6 @@ import "./KOTHPresale.sol";
 contract KOTH is Context, CustomERC777, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
-    //TODO TEST
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     constructor(address owner, address presaleContract) CustomERC777("KOTH", "KOTH", new address[](0)) {
@@ -43,7 +42,6 @@ contract KOTH is Context, CustomERC777, AccessControl {
         _;
     }
 
-    // TODO: TEST
     modifier onlyPauser() {
         require(hasRole(PAUSER_ROLE, _msgSender()), "KOTH: sender must be a pauser");
         _;
