@@ -149,4 +149,4 @@ You can deploy on `kovan` with:
 truffle migrate --network kovan
 ```
 
-Don't miss on the console the ouput the address of each contract.
+Don't miss on the console the ouput the address of each contracts.
