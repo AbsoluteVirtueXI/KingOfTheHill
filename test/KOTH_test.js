@@ -162,7 +162,7 @@ describe('KOTH token', function () {
   context('KOTH: KingOfTheHill default operator', function () {
     beforeEach(async function () {
       this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
-      this.kingOfTheHill = await KingOfTheHill.new(this.koth.address, { from: dev });
+      this.kingOfTheHill = await KingOfTheHill.new(owner, wallet, this.koth.address, { from: dev });
     });
     it('GAME_MASTER_ROLE can set game contract as default operator', async function () {
       await this.koth.addGameContract(this.kingOfTheHill.address, { from: owner });
