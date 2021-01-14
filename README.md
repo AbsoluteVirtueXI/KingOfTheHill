@@ -75,6 +75,8 @@ This account **MUST HAVE** ethers or testnet ethers
 `ENDPOINT_ID` is the project id on infura side. It can be same or you can create one on infura.  
 Actually no problem if it is same.
 
+**THIS _.env_ file is critical because it stores your private key. DO NOT SHARE THIS FILE or NEVER LET SOMEONE READ IT. This file is exclude in _.gitignore_ so you can push your project without problem.**
+
 **You can now compile, deploy and run tests on all the KingOfTheHill contracts**
 
 ### compile all the contract
