@@ -95,3 +95,58 @@ yarn test
 ```
 
 ## KOTHPresale and KOTK token contracts
+
+Actually KOTHPresale and KOTH token contracts are deployed automatically.
+The process will deploy the KOTHPresale first, and then the KOTH token will be deployed.
+
+### KOTHPResale deployment configuration
+
+In _2_deploy_KOTHPresale.js_ configure the parameters of the contract constructor.
+
+```js
+const BN = web3.utils.BN;
+const KOTHPresale = artifacts.require("KOTHPresale");
+
+const OWNER = "0x57D401B8502bC5CBBaAfD2564236dE4571165051"; // SET OWNER HERE
+const WALLET = "0x57D401B8502bC5CBBaAfD2564236dE4571165051"; // SET WALLET HERE
+const PRICE = new BN("1000000000000000"); // SET DEFAULT PRICE IN WEI
+module.exports = async (deployer) => {
+  await deployer.deploy(KOTHPresale, OWNER, WALLET, PRICE);
+};
+```
+
+Set `OWNER` with the owner address.  
+Set `WALLET` with the wallet address. This address will receive the amount of each purchases.  
+Set `PRICE` with the amount in wei for 1 KOTH. The price can be changed after deployment.  
+After deployment the Presale is in `paused` state. Need to unpause by owner of the contract for starting the presale.
+
+### KOTH deployment configuration
+
+In _3_deploy_KOTH.js_ configure the parameters of the contract constructor.
+
+```js
+const KOTH = artifacts.require("KOTH");
+const KOTHPresale = artifacts.require("KOTHPresale");
+
+const OWNER = "0x57D401B8502bC5CBBaAfD2564236dE4571165051"; // SET OWNER HERE
+
+// KOTHPresale must be deployed before KOTH contract
+module.exports = async (deployer) => {
+  await deployer.deploy(KOTH, OWNER, KOTHPresale.address);
+};
+```
+
+Set `OWNER` with the owner address.
+
+After deployment the token contract is in `paused` state. Need to stop the presale to unpause the token contract.
+
+### Deployment
+
+Actually only presale and token contracts will be deployed.
+You can deploy on `kovan` with:
+
+```zsh
+truffle migrate --network kovan
+```
+
+Don't miss on the console the ouput the address of each contract.
