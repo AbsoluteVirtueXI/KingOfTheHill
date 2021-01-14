@@ -10,20 +10,20 @@ const KingOfTheHill = contract.fromArtifact('KingOfTheHill');
 
 describe('KingOfTheHill contract', function () {
   this.timeout(0);
-  const [owner, dev, user0, user1, user2, user3, user4, user5, registryFunder] = accounts;
+  const [owner, wallet, dev, user0, user1, user2, user3, user4, user5, registryFunder] = accounts;
   const KOTH_PRICE = ether('0.001'); // 1 KOTH = 0.001 ether <=> 1 ether = 1000 KOTH
   beforeEach(async function () {
     this.erc1820 = await singletons.ERC1820Registry(registryFunder);
     this.presale = await KOTHPresale.new(owner, owner, KOTH_PRICE, { from: dev });
     this.koth = await KOTH.new(owner, this.presale.address, { from: dev });
-    this.presale.unpause({ from: owner }); // start the presale
+    await this.presale.unpause({ from: owner }); // start the presale
     // mint some KOTH to users;
     await this.koth.mint(user1, ether('1000'), { from: owner });
     await this.koth.mint(user2, ether('2000'), { from: owner });
     await this.presale.buyKOTH({ from: user3, value: ether('3'), gasPrice: 0 });
     await this.presale.buyKOTH({ from: user4, value: ether('4'), gasPrice: 0 });
     await this.koth.mint(user5, ether('5000'), { from: owner });
-    this.presale.pause({ from: owner }); // stop presale
+    await this.presale.pause({ from: owner }); // stop presale
     expect(await this.koth.balanceOf(user0)).to.be.a.bignumber.equal(ether('0'));
     expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('1000'));
     expect(await this.koth.balanceOf(user2)).to.be.a.bignumber.equal(ether('2000'));
@@ -32,8 +32,8 @@ describe('KingOfTheHill contract', function () {
     expect(await this.koth.balanceOf(user5)).to.be.a.bignumber.equal(ether('5000'));
   });
   context('KingOfTheHill deployed', function () {
-    before(async function () {
-      this.game = await KingOfTheHill.new(owner, this.koth.address);
+    beforeEach(async function () {
+      this.game = await KingOfTheHill.new(owner, wallet, this.koth.address);
     });
     it('has owner', async function () {
       expect(await this.game.owner()).to.equal(owner);
@@ -61,25 +61,25 @@ describe('KingOfTheHill contract', function () {
     });
   });
   context('KingOfTheHill game administration', function () {
-    before(async function () {
-      this.game = await KingOfTheHill.new(owner, this.koth.address);
+    beforeEach(async function () {
+      this.game = await KingOfTheHill.new(owner, wallet, this.koth.address);
     });
   });
   context('kingOfTheHill buy pot', function () {
-    before(async function () {
-      this.game = await KingOfTheHill.new(owner, this.koth.address);
+    beforeEach(async function () {
+      this.game = await KingOfTheHill.new(owner, wallet, this.koth.address);
       await this.koth.addGameContract(this.game.address, { from: owner });
     });
     it('player can buy Pot', async function () {});
   });
   context('KingOfTheHill buy power-ups', function () {
-    before(async function () {
-      this.game = await KingOfTheHill.new(owner, this.koth.address);
+    beforeEach(async function () {
+      this.game = await KingOfTheHill.new(owner, wallet, this.koth.address);
       await this.koth.addGameContract(this.game.address, { from: owner });
     });
-    it('player can buy strength bonus with KOTH', async function () {});
-    it('player can buy defense bonus with KOTH', async function () {});
-    it('plyaer can buy agility bonus with KOTH', async function () {});
+    it('player can get strength bonus with KOTH', async function () {});
+    it('player can get defense bonus with KOTH', async function () {});
+    it('player can get agility bonus with KOTH', async function () {});
   });
   context('KingOfTheHill game logic', function () {});
 });
