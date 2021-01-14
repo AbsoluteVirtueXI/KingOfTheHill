@@ -7,19 +7,44 @@ import "./KOTH.sol";
 
 contract KingOfTheHill is Ownable {
     KOTH private _koth;
-    uint256 private _strengthBonus;
-    uint256 private _defenseBonus;
-    uint256 private _agilityBonus;
+    address private _wallet;
     bool private _isStrengthPowerUp;
     bool private _isDefensePowerUp;
     bool private _isAgilityPowerUp;
+    uint256 private _strengthBonus;
+    uint256 private _defenseBonus;
+    uint256 private _agilityBonus;
+    uint256 private _nbBlocksWinning; // default nbBlockLimit
 
-    constructor(address owner, address koth_) {
+    constructor(
+        address owner,
+        address wallet_,
+        address koth_
+    ) {
         _koth = KOTH(koth_);
+        _wallet = wallet_;
+        _nbBlocksWinning = 100;
         _strengthBonus = 10;
         _defenseBonus = 10;
         _agilityBonus = 5;
         transferOwnership(owner);
+    }
+
+    function koth() public view returns (address) {
+        return address(_koth);
+    }
+
+    function wallet() public view returns (address) {
+        return _wallet;
+    }
+
+    function nbBlocksWinning() public view returns (uint256) {
+        return _nbBlocksWinning;
+    }
+
+    function setNbBlocksWinning(uint256 nbBlocks) public onlyOwner() {
+        require(nbBlocks > 0, "KingOfTheHill: nbBlocks must be greater than 0");
+        _nbBlocksWinning = nbBlocks;
     }
 
     function strengthBonus() public view returns (uint256) {
@@ -57,10 +82,6 @@ contract KingOfTheHill is Ownable {
 
     function isAgilityPowerUp() public view returns (bool) {
         return _isAgilityPowerUp;
-    }
-
-    function koth() public view returns (address) {
-        return address(_koth);
     }
 
     function pot() public view returns (uint256) {}
