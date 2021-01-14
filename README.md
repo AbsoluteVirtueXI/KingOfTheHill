@@ -5,7 +5,7 @@
 ### Install node.js
 
 ```zsh
-brew installnode
+brew install node
 ```
 
 node version should be greater than **v15.0.0**
