@@ -27,7 +27,7 @@
 
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 require('dotenv').config();
-const mnemonic = process.env.MNEMONIC;
+const private_key = process.env.PRIVATE_KEY;
 const projectId = process.env.ENDPOINT_ID;
 module.exports = {
   /**
@@ -54,14 +54,14 @@ module.exports = {
     },
     mainnet: {
       provider: function () {
-        return new HDWalletProvider(mnemonic, `https://mainnet.infura.io/v3/${projectId}`);
+        return new HDWalletProvider(private_key, `https://mainnet.infura.io/v3/${projectId}`);
       },
       gas: 5000000,
       gasPrice: 5e9,
       network_id: 1,
     },
     rinkeby: {
-      provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/${projectId}`),
+      provider: () => new HDWalletProvider(private_key, `https://rinkeby.infura.io/v3/${projectId}`),
       network_id: 4,
       gas: 6721975,
       confirmations: 0,
@@ -69,7 +69,7 @@ module.exports = {
       skipDryRun: true,
     },
     goerli: {
-      provider: () => new HDWalletProvider(mnemonic, `https://goerli.infura.io/v3/${projectId}`),
+      provider: () => new HDWalletProvider(private_key, `https://goerli.infura.io/v3/${projectId}`),
       network_id: 5,
       gas: 6721975,
       confirmations: 2,
@@ -77,10 +77,9 @@ module.exports = {
       skipDryRun: true,
     },
     kovan: {
-      provider: () => new HDWalletProvider(mnemonic, `wss://kovan.infura.io/ws/v3/${projectId}`),
+      provider: () => new HDWalletProvider(private_key, `wss://kovan.infura.io/ws/v3/${projectId}`),
       network_id: 42,
       gas: 6721975,
-      gasPrice: 10000000000,
       confirmations: 2,
       timeoutBlocks: 200,
       skipDryRun: true,
