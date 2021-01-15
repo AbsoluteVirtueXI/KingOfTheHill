@@ -98,6 +98,7 @@ yarn test
 
 Actually KOTHPresale and KOTH token contracts are deployed automatically.
 The process will deploy the KOTHPresale first, and then the KOTH token will be deployed.
+Deployment scrips are under `migrations/ directory`
 
 ### KOTHPResale deployment configuration
 
@@ -143,10 +144,17 @@ After deployment the token contract is in `paused` state. Need to stop the presa
 ### Deployment
 
 Actually only presale and token contracts will be deployed.
+**`truffle migrate` deployment command has to be launched at the root directory of the project**
 You can deploy on `kovan` with:
 
 ```zsh
 truffle migrate --network kovan
+```
+
+if you want to reset everything and redeploy even if contracts code didn't change:
+
+```zsh
+truffle migrate --network kovan --reset
 ```
 
 Don't miss on the console the ouput the address of each contracts.
