@@ -97,8 +97,8 @@ yarn test
 ## KOTHPresale and KOTK token contracts
 
 Actually KOTHPresale and KOTH token contracts are deployed automatically.
-The process will deploy the KOTHPresale first, and then the KOTH token will be deployed.
-Deployment scrips are under `migrations/ directory`
+The process will deploy the KOTHPresale first, and then the KOTH token will be deployed.  
+Deployment scrips are under `migrations/` directory.
 
 ### KOTHPResale deployment configuration
 
