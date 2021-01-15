@@ -28,7 +28,6 @@ contract KOTHPresale is Context, Ownable, Pausable, ReentrancyGuard {
 
     mapping(address => Referrer) private _referrer;
 
-    // Todo test
     event KOTHPurchased(
         address indexed purchaser,
         address indexed parentReferrer,
