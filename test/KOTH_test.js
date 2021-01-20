@@ -204,18 +204,5 @@ describe('KOTH token', function () {
         'KOTH: sender must be a game master'
       );
     });
-    it('game contract as default operator can send tokens on behalf of all the token holders', async function () {
-      await this.koth.addGameContract(this.kingOfTheHill.address, { from: owner });
-      await this.koth.mint(user1, ether('12'), { from: owner });
-      await this.kingOfTheHill.opSend(user2, ether('7'), { from: user1 });
-      expect(await this.koth.balanceOf(user1), 'user1 balance must be 5 KOTH').to.be.a.bignumber.equal(ether('5'));
-      expect(await this.koth.balanceOf(user2), 'user2 balance must be 7 KOTH').to.be.a.bignumber.equal(ether('7'));
-    });
-    it('game contract as default operator can burn tokens on behalf of all the token holders', async function () {
-      await this.koth.addGameContract(this.kingOfTheHill.address, { from: owner });
-      await this.koth.mint(user1, ether('12'), { from: owner });
-      await this.kingOfTheHill.opBurn(ether('11'), { from: user1 });
-      expect(await this.koth.balanceOf(user1)).to.be.a.bignumber.equal(ether('1'));
-    });
   });
 });
