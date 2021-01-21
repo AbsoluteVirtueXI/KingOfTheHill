@@ -276,16 +276,4 @@ describe('KingOfTheHill contract', function () {
       );
     });
   });
-  /*
-  context('KingOfTheHill buy power-ups', function () {
-    beforeEach(async function () {
-      this.game = await KingOfTheHill.new(owner, wallet, this.koth.address);
-      await this.koth.addGameContract(this.game.address, { from: owner });
-    });
-    it('player can get strength bonus with KOTH', async function () {});
-    it('player can get defense bonus with KOTH', async function () {});
-    it('player can get agility bonus with KOTH', async function () {});
-  });
-  context('KingOfTheHill game logic', function () {});
-  */
 });
