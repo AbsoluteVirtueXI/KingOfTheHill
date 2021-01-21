@@ -208,8 +208,8 @@ contract KingOfTheHill is Ownable, Pausable {
             _pot = _seed;
             _seed = 0;
         }
-        uint256 toSeed = percentageToAmount(priceOfPot(), _percentagePotToSeed);
-        uint256 toPot = priceOfPot().sub(toSeed);
+        uint256 toSeed = percentageToAmount(msg.value, _percentagePotToSeed);
+        uint256 toPot = msg.value.sub(toSeed);
         _pot = _pot.add(toPot);
         _seed = _seed.add(toSeed);
         _nbBlockBought = block.number;
@@ -219,9 +219,6 @@ contract KingOfTheHill is Ownable, Pausable {
         _nbAgility = 0;
         _potOwner = _msgSender();
         emit Bought(_msgSender());
-        if (msg.value > priceOfPot()) {
-            msg.sender.transfer(msg.value.sub(priceOfPot()));
-        }
     }
 
     function buyStrength() public onlyPotOwner() whenNotPaused() {
@@ -253,7 +250,9 @@ contract KingOfTheHill is Ownable, Pausable {
         _unpause();
     }
 
-    // TODO add buy pot, winner event
+    function withdraw(uint256 amount) public onlyOwner() {
+        payable(owner()).transfer(amount);
+    }
 
     receive() external payable {
         _pot = _pot.add(msg.value);
